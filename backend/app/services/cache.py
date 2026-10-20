@@ -5,6 +5,7 @@ import json
 import logging
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from redis import Redis
 from redis.exceptions import RedisError
@@ -16,6 +17,19 @@ logger = logging.getLogger(__name__)
 
 def _sha(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _redact_url(url: str) -> str:
+    try:
+        parts = urlsplit(url)
+        if not parts.password:
+            return urlunsplit(parts)
+        host = parts.hostname or ""
+        port = f":{parts.port}" if parts.port else ""
+        user = parts.username or ""
+        return urlunsplit((parts.scheme, f"{user}:***@{host}{port}", parts.path, parts.query, parts.fragment))
+    except ValueError:
+        return "<redacted redis url>"
 
 
 class RedisCache:
@@ -34,7 +48,7 @@ class RedisCache:
                 health_check_interval=30,
             )
             self._client.ping()
-            logger.info("Redis cache connected: %s", settings.redis_url)
+            logger.info("Redis cache connected: %s", _redact_url(settings.redis_url))
         except RedisError as exc:
             self._available = False
             logger.warning("Redis cache unavailable, continuing without cache: %s", exc)
@@ -92,7 +106,11 @@ class RedisCache:
         def write():
             pipe = self._client.pipeline(transaction=False)
             for text, vector in zip(texts, vectors):
-                pipe.setex(self._embedding_key(text), ttl, json.dumps(vector, separators=(",", ":")))
+                pipe.set(
+                    self._embedding_key(text),
+                    json.dumps(vector, separators=(",", ":")),
+                    ex=ttl,
+                )
             pipe.execute()
         self._safe("set_embeddings", write, None)
 
@@ -160,10 +178,10 @@ class RedisCache:
         ttl = max(60, int(settings.redis_answer_ttl_seconds))
         self._safe(
             "set_answer",
-            lambda: self._client.setex(
+            lambda: self._client.set(
                 key,
-                ttl,
                 json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                ex=ttl,
             ),
             None,
         )
