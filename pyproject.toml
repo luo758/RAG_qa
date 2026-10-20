@@ -1,0 +1,31 @@
+[project]
+name = "docflow"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "fastapi>=0.146.0",
+    "httpx>=0.28.1",
+    "pillow>=13.0.0",
+    "pydantic-settings>=2.16.0",
+    "pyjwt>=2.15.1",
+    "pymilvus[milvus-lite]>=3.0.2",
+    "pymysql>=1.2.3",
+    "pypdf>=6.21.1",
+    "python-multipart>=0.0.32",
+    "python-pptx>=1.0.2",
+    "rank-bm25>=0.2.2",
+    "redis>=8.1.0",
+    "reportlab>=5.0.1",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy>=2.1.5",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-q"
